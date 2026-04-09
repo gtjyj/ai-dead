@@ -18,7 +18,7 @@ export default function ApiFormModal({
   }
 
   return (
-    <div className="modal-backdrop" role="presentation" onClick={onCancel}>
+    <div className="modal-backdrop" role="presentation">
       <div
         className="config-modal panel"
         role="dialog"

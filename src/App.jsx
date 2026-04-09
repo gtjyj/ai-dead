@@ -20,7 +20,7 @@ export default function App() {
   const statusFloatApi = monitorApp.apis.find((api) => api.id === statusFloatApiId);
 
   if (isStatusFloatWindow) {
-    return <StatusFloatWindow api={statusFloatApi} />;
+    return <StatusFloatWindow api={statusFloatApi} isRunning={monitorApp.isRunning} />;
   }
 
   return (
@@ -30,15 +30,6 @@ export default function App() {
       <div className="ambient ambient-right" />
 
       <MonitorHero
-        intervalSeconds={monitorApp.intervalSeconds}
-        isRunning={monitorApp.isRunning}
-        lastRunAt={monitorApp.lastRunAt}
-        monitorMode={monitorApp.monitorMode}
-        monitorBusy={monitorApp.monitorBusy}
-        onMonitorModeChange={monitorApp.handleMonitorModeChange}
-        onIntervalChange={monitorApp.setIntervalSeconds}
-        onManualCheck={monitorApp.handleManualCheck}
-        onToggleMonitoring={monitorApp.handleToggleMonitoring}
         stats={monitorApp.stats}
       />
 
@@ -53,21 +44,29 @@ export default function App() {
           apis={monitorApp.apis}
           focusedApis={monitorApp.focusedApis}
           intervalSeconds={monitorApp.intervalSeconds}
+          isRunning={monitorApp.isRunning}
           listBusy={monitorApp.listBusy}
           monitorMode={monitorApp.monitorMode}
+          monitorBusy={monitorApp.monitorBusy}
           modelFilters={monitorApp.modelFilters}
           now={monitorApp.now}
           onAddApi={monitorApp.handleOpenAddApi}
+          onClearApiHistory={monitorApp.handleClearApiHistory}
           onClearHistory={monitorApp.handleClearHistory}
           onConfigureSync={monitorApp.handleOpenGistSync}
           onCopyAccountName={monitorApp.handleCopyAccountName}
           onCopyAccountPassword={monitorApp.handleCopyAccountPassword}
           onCopyApiKey={monitorApp.handleCopyApiKey}
+          onCloseStatusFloat={monitorApp.handleCloseStatusFloat}
           onDeleteRequest={monitorApp.handleDeleteRequest}
           onEdit={monitorApp.handleEdit}
+          onIntervalChange={monitorApp.setIntervalSeconds}
+          onManualCheck={monitorApp.handleManualCheck}
+          onMonitorModeChange={monitorApp.handleMonitorModeChange}
           onApplyApiConfig={monitorApp.handleApplyApiConfig}
           onOpenWebsite={monitorApp.handleOpenWebsite}
           onToggleStatusFloat={monitorApp.handleToggleStatusFloat}
+          onToggleMonitoring={monitorApp.handleToggleMonitoring}
           onSingleCheck={monitorApp.handleSingleCheck}
           onTogglePause={monitorApp.handleTogglePause}
           onToggleModel={monitorApp.handleToggleModel}
@@ -114,16 +113,6 @@ export default function App() {
         onMerge={monitorApp.handleRestoreMergeConfirm}
         onOverwrite={monitorApp.handleRestoreOverwriteConfirm}
       />
-
-      {monitorApp.statusFloat.openApiIds.length ? (
-        <button
-          className="close-float-button"
-          type="button"
-          onClick={() => monitorApp.handleCloseStatusFloat()}
-        >
-          关闭浮窗
-        </button>
-      ) : null}
     </div>
   );
 }

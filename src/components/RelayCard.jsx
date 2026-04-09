@@ -80,6 +80,14 @@ function PauseIcon() {
   );
 }
 
+function ClearHistoryIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M9 3h6l1 2h4v2H4V5h4l1-2zm-2 6h2v9H7V9zm4 0h2v9h-2V9zm4 0h2v9h-2V9z" />
+    </svg>
+  );
+}
+
 function VendorBadge({ vendor }) {
   const normalizedVendor = String(vendor || "openai").toLowerCase();
   const assetBase = import.meta.env.BASE_URL || "./";
@@ -110,6 +118,7 @@ export default function RelayCard({
   monitorMode,
   now,
   onApplyApiConfig,
+  onClearApiHistory,
   onCopyAccountName,
   onCopyAccountPassword,
   onCopyApiKey,
@@ -207,11 +216,12 @@ export default function RelayCard({
 
             <div className="relay-actions relay-actions-top">
               <div className="relay-float-toggle">
-                <span className="relay-float-toggle-label">浮窗</span>
                 <BaseSwitch
                   checked={statusFloatOpen}
                   disabled={listBusy}
                   label={`${api.name} 状态浮窗`}
+                  offText="浮窗"
+                  onText="关闭"
                   title={floatSwitchLabel}
                   onChange={() => onToggleStatusFloat(api, !statusFloatOpen)}
                 />
@@ -275,6 +285,15 @@ export default function RelayCard({
                           <span>
                             {api.paused ? "恢复自动巡检" : "暂停自动巡检"}
                           </span>
+                        </button>
+                        <button
+                          className="relay-menu-item"
+                          type="button"
+                          role="menuitem"
+                          onClick={() => handleAction(() => onClearApiHistory(api))}
+                        >
+                          <ClearHistoryIcon />
+                          <span>清空历史结果</span>
                         </button>
                         {canApplyToCodex ? (
                           <button

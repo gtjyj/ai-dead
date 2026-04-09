@@ -26,6 +26,183 @@ function extractResultText(content) {
     .trim();
 }
 
+function parseJsonSafely(text) {
+  try {
+    return JSON.parse(text);
+  } catch {
+    return null;
+  }
+}
+
+function trimTrailingSlash(text) {
+  return String(text || '').replace(/\/+$/, '');
+}
+
+function extractStreamingPayloadText(payload) {
+  if (!payload || typeof payload !== 'object') {
+    return '';
+  }
+
+  if (payload.type === 'response.output_text.done' && typeof payload.text === 'string') {
+    return payload.text;
+  }
+
+  if (typeof payload.output_text === 'string') {
+    return payload.output_text;
+  }
+
+  if (Array.isArray(payload.output)) {
+    return payload.output
+      .flatMap(item => Array.isArray(item?.content) ? item.content : [])
+      .filter(part => part?.type === 'output_text' && typeof part.text === 'string')
+      .map(part => part.text)
+      .join(' ')
+      .trim();
+  }
+
+  const choice = payload?.choices?.[0];
+
+  if (typeof choice?.message?.content === 'string') {
+    return choice.message.content;
+  }
+
+  if (typeof choice?.delta?.content === 'string') {
+    return choice.delta.content;
+  }
+
+  return '';
+}
+
+async function readStreamText(stream) {
+  const reader = stream.getReader();
+  let buffer = '';
+  let finalText = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+
+    if (done) {
+      break;
+    }
+
+    buffer += Buffer.from(value).toString('utf8');
+
+    while (true) {
+      const separatorIndex = buffer.indexOf('\n\n');
+
+      if (separatorIndex === -1) {
+        break;
+      }
+
+      const rawEvent = buffer.slice(0, separatorIndex);
+      buffer = buffer.slice(separatorIndex + 2);
+
+      const dataLines = rawEvent
+        .split('\n')
+        .filter(line => line.startsWith('data: '))
+        .map(line => line.slice(6));
+
+      if (!dataLines.length) {
+        continue;
+      }
+
+      const payloadText = dataLines.join('\n');
+
+      if (payloadText === '[DONE]') {
+        continue;
+      }
+
+      const payload = parseJsonSafely(payloadText);
+
+      if (!payload) {
+        continue;
+      }
+
+      if (payload.type === 'response.output_text.delta' && typeof payload.delta === 'string') {
+        finalText += payload.delta;
+        continue;
+      }
+
+      const snapshotText = extractStreamingPayloadText(payload);
+
+      if (snapshotText) {
+        finalText = snapshotText;
+      }
+    }
+  }
+
+  return trimText(finalText);
+}
+
+async function readResponseText(response) {
+  const contentType = String(response.headers.get('content-type') || '').toLowerCase();
+
+  if (contentType.includes('text/event-stream')) {
+    if (!response.body) {
+      return '';
+    }
+
+    return readStreamText(response.body);
+  }
+
+  const rawText = await response.text().catch(() => '');
+  const trimmed = trimText(rawText);
+
+  if (!trimmed) {
+    return '';
+  }
+
+  const payload = parseJsonSafely(trimmed);
+
+  if (!payload) {
+    return trimmed;
+  }
+
+  return trimText(extractStreamingPayloadText(payload));
+}
+
+async function tryResponsesStreamFallback(api, signal) {
+  const response = await fetch(`${trimTrailingSlash(api.baseURL)}/responses`, {
+    method: 'POST',
+    signal,
+    headers: {
+      authorization: `Bearer ${api.apiKey}`,
+      'cache-control': 'no-cache',
+      'content-type': 'application/json',
+      'x-relay-pulse-check-id': randomUUID(),
+    },
+    body: JSON.stringify({
+      model: api.model,
+      store: false,
+      stream: true,
+      input: 'Return OK only.',
+    }),
+  });
+
+  if (!response.ok) {
+    return {
+      text: '',
+      method: 'responses / stream',
+    };
+  }
+
+  return {
+    text: await readResponseText(response),
+    method: 'responses / stream',
+  };
+}
+
+function buildSuccessMessage(text, method) {
+  const normalizedMethod = method || 'unknown';
+  const normalizedText = trimText(text).slice(0, 120);
+
+  if (!normalizedText) {
+    return `状态 ok，无响应（响应方式：${normalizedMethod}）`;
+  }
+
+  return `${normalizedText}（响应方式：${normalizedMethod}）`;
+}
+
 async function getProviderSdk() {
   if (!providerSdkPromise) {
     providerSdkPromise = Promise.resolve()
@@ -86,7 +263,25 @@ async function runSingleCheck(api) {
       },
     });
 
-    const text = trimText(extractResultText(result?.content)).slice(0, 120) || 'OK';
+    let responseText = trimText(
+      extractResultText(result?.content)
+      || result?.text
+      || result?.outputText,
+    );
+    let responseMethod = 'chat.completions / non-stream';
+
+    if (!responseText) {
+      const fallback = await tryResponsesStreamFallback(api, controller.signal).catch(() => null);
+
+      if (fallback?.text) {
+        responseText = fallback.text;
+        responseMethod = fallback.method;
+      } else if (fallback?.method) {
+        responseMethod = `${responseMethod} -> ${fallback.method}`;
+      }
+    }
+
+    const detail = buildSuccessMessage(responseText, responseMethod);
     const latency = Date.now() - startedAt;
     const checkedAt = new Date().toISOString();
     updateApiRecord(api.id, {
@@ -94,13 +289,13 @@ async function runSingleCheck(api) {
       lastCheckedAt: checkedAt,
       lastAutoCheckAt: checkedAt,
       lastLatencyMs: latency,
-      lastMessage: text,
+      lastMessage: detail,
       lastError: '',
       testHistory: appendTestHistory(api, {
         at: checkedAt,
         latencyMs: latency,
         status: 'success',
-        detail: text,
+        detail,
       }),
     });
     addEvent('success', `连接成功，耗时 ${latency}ms`, api.name);

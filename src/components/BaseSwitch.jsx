@@ -1,4 +1,12 @@
-export default function BaseSwitch({ checked, disabled = false, label, onChange, title }) {
+export default function BaseSwitch({
+  checked,
+  disabled = false,
+  label,
+  offText = "",
+  onChange,
+  onText = "",
+  title,
+}) {
   return (
     <button
       type="button"
@@ -11,6 +19,7 @@ export default function BaseSwitch({ checked, disabled = false, label, onChange,
       onClick={() => onChange(!checked)}
     >
       <span className="base-switch-track">
+        <span className="base-switch-text">{checked ? onText : offText}</span>
         <span className="base-switch-thumb" />
       </span>
     </button>

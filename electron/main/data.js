@@ -79,7 +79,7 @@ function normalizeTestHistory(testHistory) {
       at: item.at || null,
       latencyMs: Number.isFinite(item.latencyMs) ? item.latencyMs : null,
       status: item.status === 'success' ? 'success' : 'error',
-      detail: compactText(item.detail || item.message || (item.status === 'success' ? 'OK' : 'No result'), 400),
+      detail: compactText(item.detail || item.message || (item.status === 'success' ? '状态 ok，无响应' : 'No result'), 400),
     }))
     .slice(-MAX_TEST_HISTORY_ITEMS);
 }
@@ -254,6 +254,27 @@ async function clearAllTestHistory() {
   return buildPublicState();
 }
 
+async function clearApiTestHistory(apiId) {
+  const targetId = trimText(apiId);
+  const targetApi = persistedState.apis.find(api => api.id === targetId);
+
+  if (!targetApi) {
+    throw new Error('未找到要清空历史的 API。');
+  }
+
+  updateApiRecord(targetId, {
+    testHistory: [],
+    lastMessage: '',
+    lastError: '',
+    lastLatencyMs: null,
+  });
+
+  await savePersistedState();
+  addEvent('info', `已清空 ${targetApi.name} 的历史测试结果。`, targetApi.name);
+  emitState();
+  return buildPublicState();
+}
+
 function validateApiPayload(payload) {
   const name = trimText(payload?.name);
   const vendor = normalizeVendor(payload?.vendor);
@@ -408,6 +429,7 @@ function normalizeImportedApis(apis) {
 
 module.exports = {
   appendTestHistory,
+  clearApiTestHistory,
   buildSyncExportState,
   clampInterval,
   clampRequestTimeoutSeconds,

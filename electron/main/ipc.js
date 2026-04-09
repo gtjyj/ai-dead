@@ -4,6 +4,7 @@ const { closeStatusFloat, focusMainWindow, openStatusFloat } = require('./status
 const { buildPublicState } = require('./store');
 const {
   clearAllTestHistory,
+  clearApiTestHistory,
   deleteApiById,
   saveApiPayload,
   setApiPaused,
@@ -57,6 +58,7 @@ function registerMonitorIpc() {
   ipcMain.handle('monitor:test-now', async () => runAllChecks('manual'));
   ipcMain.handle('monitor:set-api-paused', async (_event, payload) => setApiPaused(payload?.apiId, payload?.paused));
   ipcMain.handle('monitor:clear-history', async () => clearAllTestHistory());
+  ipcMain.handle('monitor:clear-api-history', async (_event, apiId) => clearApiTestHistory(apiId));
   ipcMain.handle('monitor:apply-api-config', async (_event, payload) => applyApiToTarget(payload));
   ipcMain.handle('monitor:restore-gist', async (_event, settings) => restoreConfigFromGist(settings));
   ipcMain.handle('monitor:sync-gist', async (_event, settings) => syncConfigToGist(settings));

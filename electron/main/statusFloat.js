@@ -14,7 +14,7 @@ const {
 } = require("./store");
 
 const FLOAT_WIDTH = 270;
-const FLOAT_HEIGHT = 35;
+const FLOAT_HEIGHT = 40;
 const FLOAT_GAP = 8;
 
 function getUiUrl(hash) {

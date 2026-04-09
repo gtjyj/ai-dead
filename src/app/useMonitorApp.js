@@ -483,6 +483,14 @@ export default function useMonitorApp() {
     );
   }
 
+  async function handleClearApiHistory(api) {
+    await runAction(
+      setListBusy,
+      () => window.monitorApi.clearApiHistory(api.id),
+      `${api.name} 的历史测试结果已清空。`,
+    );
+  }
+
   async function handleCopyValue(event, value, successMessage, emptyMessage) {
     event.stopPropagation();
 
@@ -790,6 +798,7 @@ export default function useMonitorApp() {
     unfocusedApis,
     setIntervalSeconds,
     handleCancelEdit,
+    handleClearApiHistory,
     handleClearHistory,
     handleCopyAccountName,
     handleCopyAccountPassword,

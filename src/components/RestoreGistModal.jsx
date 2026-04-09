@@ -10,7 +10,7 @@ export default function RestoreGistModal({
   }
 
   return (
-    <div className="modal-backdrop" role="presentation" onClick={onCancel}>
+    <div className="modal-backdrop" role="presentation">
       <div
         className="confirm-modal panel"
         role="dialog"

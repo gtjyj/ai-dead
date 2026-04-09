@@ -1,11 +1,21 @@
 import { useLayoutEffect, useRef } from "react";
-import { formatAvailability, getDotTone } from "../lib/monitorMetrics";
+import { getDotTone } from "../lib/monitorMetrics";
 
-function getAvailabilityDisplay(history) {
-  return formatAvailability(history);
+function getAutoCheckStatus(api, isRunning) {
+  if (isRunning && !api?.paused) {
+    return {
+      label: "巡检中",
+      tone: "running",
+    };
+  }
+
+  return {
+    label: "暂停",
+    tone: "paused",
+  };
 }
 
-export default function StatusFloatWindow({ api }) {
+export default function StatusFloatWindow({ api, isRunning }) {
   const cardRef = useRef(null);
   const dragStateRef = useRef({
     dragStarted: false,
@@ -15,8 +25,12 @@ export default function StatusFloatWindow({ api }) {
   });
   const history = (api?.testHistory || []).slice(-10);
   const visibleHistory = history.length ? history : [];
-  const availability = getAvailabilityDisplay(visibleHistory);
   const title = api?.name || "API 状态";
+  const autoCheckStatus = getAutoCheckStatus(api, isRunning);
+  const isTesting = api?.status === "testing";
+  const displayHistory = isTesting && visibleHistory.length
+    ? visibleHistory.slice(1)
+    : visibleHistory;
 
   useLayoutEffect(() => {
     const cardElement = cardRef.current;
@@ -49,7 +63,7 @@ export default function StatusFloatWindow({ api }) {
       cancelAnimationFrame(frameId);
       resizeObserver.disconnect();
     };
-  }, [api?.id, title, availability.label, visibleHistory.length]);
+  }, [api?.id, title, autoCheckStatus.label, visibleHistory.length]);
 
   function handleDoubleClick() {
     void window.monitorApi.focusMainWindow();
@@ -136,8 +150,8 @@ export default function StatusFloatWindow({ api }) {
     >
       <div className="status-float-metric">
         <span className="status-float-name">{title}</span>
-        <strong className={`status-float-metric-value ${availability.tone}`}>
-          {availability.label}
+        <strong className={`status-float-metric-value ${autoCheckStatus.tone}`}>
+          {autoCheckStatus.label}
         </strong>
       </div>
       <div
@@ -145,23 +159,32 @@ export default function StatusFloatWindow({ api }) {
         aria-label={`${api?.name || "API"} 最近 10 次状态`}
         onDoubleClick={handleDoubleClick}
       >
-        {visibleHistory.length ? (
-          visibleHistory.map((item, index) => {
-            return (
-              <span
-                key={`${item.at || "item"}-${index}`}
-                className="status-float-dot-wrap"
-                onDoubleClick={handleDoubleClick}
-              >
+        {displayHistory.length ? (
+          <>
+            {displayHistory.map((item, index) => {
+              return (
                 <span
-                  className={`status-float-dot ${getDotTone(item)}`}
-                  aria-label={item.detail || "暂无结果"}
-                />
-              </span>
-            );
-          })
+                  key={`${item.at || "item"}-${index}`}
+                  className="status-float-dot-wrap"
+                  onDoubleClick={handleDoubleClick}
+                >
+                  <span
+                    className={`status-float-dot ${getDotTone(item)}`}
+                    aria-label={item.detail || "暂无结果"}
+                  />
+                </span>
+              );
+            })}
+            {isTesting ? (
+              <span className="status-float-dot loading" aria-hidden="true" />
+            ) : null}
+          </>
         ) : (
-          <span className="status-float-empty">暂无测试结果</span>
+          isTesting ? (
+            <span className="status-float-dot loading" aria-hidden="true" />
+          ) : (
+            <span className="status-float-empty">暂无测试结果</span>
+          )
         )}
       </div>
     </div>

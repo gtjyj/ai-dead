@@ -5,6 +5,7 @@ function RelayGrid({
   apis,
   intervalSeconds,
   onApplyApiConfig,
+  onClearApiHistory,
   listBusy,
   monitorMode,
   now,
@@ -39,6 +40,7 @@ function RelayGrid({
         monitorMode={monitorMode}
         now={now}
         onApplyApiConfig={onApplyApiConfig}
+        onClearApiHistory={onClearApiHistory}
         onCopyAccountName={onCopyAccountName}
         onCopyAccountPassword={onCopyAccountPassword}
         onCopyApiKey={onCopyApiKey}
@@ -60,21 +62,29 @@ export default function RelayPanel({
   apis,
   focusedApis,
   intervalSeconds,
+  isRunning,
   listBusy,
   monitorMode,
+  monitorBusy,
   modelFilters,
   now,
   onAddApi,
   onApplyApiConfig,
+  onClearApiHistory,
   onClearHistory,
   onConfigureSync,
   onCopyAccountName,
   onCopyAccountPassword,
   onCopyApiKey,
+  onCloseStatusFloat,
   onDeleteRequest,
   onEdit,
+  onIntervalChange,
+  onManualCheck,
+  onMonitorModeChange,
   onOpenWebsite,
   onToggleStatusFloat,
+  onToggleMonitoring,
   onSingleCheck,
   onTogglePause,
   onToggleModel,
@@ -90,40 +100,128 @@ export default function RelayPanel({
 
   return (
     <section className="panel relay-panel">
-      <div className="section-heading">
-        <div>
-          <p className="eyebrow">接口列表</p>
-          <h2>已配置接口</h2>
-        </div>
-      </div>
+      <div className="relay-panel-header">
+        <div className="relay-panel-header-left">
+          <div className="section-heading relay-panel-heading">
+            <div>
+              <p className="eyebrow">接口列表</p>
+              <h2>已配置接口</h2>
+            </div>
+          </div>
 
-      <div className="panel-actions">
-        <div className="button-row panel-actions-left">
-          <button
-            className="primary-button"
-            disabled={listBusy}
-            type="button"
-            onClick={onAddApi}
-          >
-            添加API
-          </button>
-          <button
-            className="ghost-button"
-            disabled={listBusy}
-            type="button"
-            onClick={onConfigureSync}
-          >
-            配置同步
-          </button>
+          <div className="button-row relay-panel-primary-actions">
+            <button
+              className="primary-button"
+              disabled={listBusy}
+              type="button"
+              onClick={onAddApi}
+            >
+              添加API
+            </button>
+            <button
+              className="ghost-button"
+              disabled={listBusy}
+              type="button"
+              onClick={onConfigureSync}
+            >
+              配置同步
+            </button>
+            <button
+              className="text-button relay-clear-button"
+              disabled={listBusy}
+              type="button"
+              onClick={onClearHistory}
+            >
+              清除全部巡检结果
+            </button>
+            {openStatusFloatApiIds.length ? (
+              <button
+                className="ghost-button"
+                disabled={listBusy}
+                type="button"
+                onClick={onCloseStatusFloat}
+              >
+                关闭全部浮窗
+              </button>
+            ) : null}
+          </div>
         </div>
-        <button
-          className="text-button panel-clear-button"
-          disabled={listBusy}
-          type="button"
-          onClick={onClearHistory}
-        >
-          清除历史结果
-        </button>
+
+        <div className="relay-panel-header-right">
+          <div className="relay-monitor-panel">
+            <div
+              className="monitor-mode-row"
+              role="radiogroup"
+              aria-label="自动巡检模式"
+            >
+              <button
+                type="button"
+                className={`monitor-mode-chip${monitorMode === "fixed" ? " active" : ""}`}
+                aria-pressed={monitorMode === "fixed"}
+                disabled={isRunning || monitorBusy}
+                onClick={() => onMonitorModeChange("fixed")}
+              >
+                固定时间巡检
+              </button>
+              <button
+                type="button"
+                className={`monitor-mode-chip${monitorMode === "per-api" ? " active" : ""}`}
+                aria-pressed={monitorMode === "per-api"}
+                disabled={isRunning || monitorBusy}
+                onClick={() => onMonitorModeChange("per-api")}
+              >
+                按接口间隔巡检
+              </button>
+            </div>
+
+            <div className="panel-monitor-actions">
+              {monitorMode === "fixed" ? (
+                <input
+                  min="5"
+                  step="1"
+                  type="number"
+                  value={intervalSeconds}
+                  onChange={(event) => onIntervalChange(event.target.value)}
+                  placeholder="巡检间隔（秒）"
+                />
+              ) : null}
+              <button
+                disabled={monitorBusy}
+                className={`monitor-toggle-button ${isRunning ? "active" : ""}`}
+                type="button"
+                onClick={onToggleMonitoring}
+              >
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M8 5h6.5A4.5 4.5 0 0119 9.5V12h-2V9.5A2.5 2.5 0 0014.5 7H8V5zm-3 7h2v2.5A4.5 4.5 0 0011.5 19H18v2h-6.5A6.5 6.5 0 015 14.5V12zm3.8-1.6L15 14l-6.2 3.6V10.4z" />
+                </svg>
+                {isRunning ? (
+                  <span className="monitor-spinner" aria-hidden="true" />
+                ) : null}
+                {isRunning ? "暂停巡检" : "自动巡检"}
+              </button>
+              <button
+                disabled={monitorBusy || isRunning}
+                className="ghost-button relay-refresh-button"
+                type="button"
+                onClick={onManualCheck}
+                aria-label="手动刷新"
+                title="手动刷新"
+              >
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path
+                    d="M20 12a8 8 0 1 1-2.34-5.66M20 4v6h-6"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+                <span>手动刷新</span>
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
 
       {modelFilters.length ? (
@@ -166,6 +264,7 @@ export default function RelayPanel({
             monitorMode={monitorMode}
             now={now}
             onApplyApiConfig={onApplyApiConfig}
+            onClearApiHistory={onClearApiHistory}
             onCopyAccountName={onCopyAccountName}
             onCopyAccountPassword={onCopyAccountPassword}
             onCopyApiKey={onCopyApiKey}
@@ -194,6 +293,7 @@ export default function RelayPanel({
               monitorMode={monitorMode}
               now={now}
               onApplyApiConfig={onApplyApiConfig}
+              onClearApiHistory={onClearApiHistory}
               onCopyAccountName={onCopyAccountName}
               onCopyAccountPassword={onCopyAccountPassword}
               onCopyApiKey={onCopyApiKey}
@@ -224,6 +324,7 @@ export default function RelayPanel({
               monitorMode={monitorMode}
               now={now}
               onApplyApiConfig={onApplyApiConfig}
+              onClearApiHistory={onClearApiHistory}
               onCopyAccountName={onCopyAccountName}
               onCopyAccountPassword={onCopyAccountPassword}
               onCopyApiKey={onCopyApiKey}

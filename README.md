@@ -6,6 +6,22 @@ Relay Pulse 是一个用于监控 OpenAI 兼容中转接口的桌面工具。
 It lets you save multiple relay configurations, run one-off or scheduled health checks, watch recent latency and availability, back up configuration to a private GitHub Gist, and apply a saved relay directly to local `Codex CLI` or `OpenCode` configuration files.  
 它支持保存多个中转配置，执行手动或定时健康检查，查看最近延迟与可用性，将配置备份到私有 GitHub Gist，并把已保存的中转配置直接应用到本地 `Codex CLI` 或 `OpenCode` 配置文件。
 
+## Feature Screenshots | 功能截图
+
+### Main Window | 主界面
+
+Main desktop view for relay management, monitoring controls, endpoint status, and recent events.  
+用于展示中转配置管理、巡检控制、接口状态与最近事件的桌面主界面。
+
+<img src="public/main.png" alt="Relay Pulse main window" width="100%" />
+
+### Floating Widget | 桌面浮窗
+
+Compact always-available floating window for quick status visibility on the desktop.  
+用于在桌面上快速查看运行状态的轻量浮窗。
+
+<img src="public/float.png" alt="Relay Pulse floating widget" width="420" />
+
 ## Features | 功能特性
 
 - Manage multiple relay endpoints in a desktop UI built with Electron + React  
@@ -37,22 +53,6 @@ It lets you save multiple relay configurations, run one-off or scheduled health 
   `RelayPanel`：接口卡片、按模型筛选、复制快捷操作、测试/编辑/删除操作、配置应用菜单
 - `EventPanel`: recent operation and check log  
   `EventPanel`：最近操作和巡检日志
-
-## Feature Screenshots | 功能截图
-
-### Main Window | 主界面
-
-Main desktop view for relay management, monitoring controls, endpoint status, and recent events.  
-用于展示中转配置管理、巡检控制、接口状态与最近事件的桌面主界面。
-
-<img src="public/main.png" alt="Relay Pulse main window" width="100%" />
-
-### Floating Widget | 桌面浮窗
-
-Compact always-available floating window for quick status visibility on the desktop.  
-用于在桌面上快速查看运行状态的轻量浮窗。
-
-<img src="public/float.png" alt="Relay Pulse floating widget" width="420" />
 
 ## Tech Stack | 技术栈
 

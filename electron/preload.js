@@ -4,6 +4,7 @@ contextBridge.exposeInMainWorld('monitorApi', {
   applyApiConfig: payload => ipcRenderer.invoke('monitor:apply-api-config', payload),
   checkNetwork: () => ipcRenderer.invoke('monitor:check-network'),
   clearHistory: () => ipcRenderer.invoke('monitor:clear-history'),
+  clearApiHistory: apiId => ipcRenderer.invoke('monitor:clear-api-history', apiId),
   beginWindowDrag: payload => ipcRenderer.invoke('monitor:begin-window-drag', payload),
   closeStatusFloat: apiId => ipcRenderer.invoke('monitor:close-status-float', apiId),
   copyText: value => {
