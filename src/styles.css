@@ -101,7 +101,7 @@ input {
     linear-gradient(180deg, rgba(48, 48, 54, 0.76), rgba(24, 24, 28, 0.88));
   border: 1px solid rgba(255, 255, 255, 0.08);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
-  overflow: visible;
+  overflow: hidden;
   user-select: none;
   cursor: pointer;
 }
@@ -172,10 +172,11 @@ input {
   display: flex;
   align-items: center;
   justify-content: flex-end;
+  flex-wrap: nowrap;
   gap: 7px;
   min-width: 0;
   flex: 1 1 auto;
-  overflow: visible;
+  overflow: hidden;
 }
 
 .status-float-dot {
@@ -193,8 +194,6 @@ input {
   flex: 0 0 auto;
   align-items: center;
   justify-content: center;
-  padding: 8px 2px;
-  margin: -8px -2px;
   cursor: default;
 }
 

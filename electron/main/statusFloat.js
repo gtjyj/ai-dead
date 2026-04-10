@@ -14,7 +14,7 @@ const {
 } = require("./store");
 
 const FLOAT_WIDTH = 270;
-const FLOAT_HEIGHT = 40;
+const FLOAT_HEIGHT = 42;
 const FLOAT_GAP = 8;
 
 function getUiUrl(hash) {
@@ -85,9 +85,9 @@ function createStatusWindow(apiId, bounds) {
     x: clampedBounds.x,
     y: clampedBounds.y,
     minWidth: 180,
-    minHeight: 35,
+    minHeight: 40,
     maxWidth: 420,
-    maxHeight: 35,
+    maxHeight: 120,
     frame: false,
     thickFrame: false,
     transparent: true,

@@ -1,6 +1,8 @@
 import { useLayoutEffect, useRef } from "react";
 import { getDotTone } from "../lib/monitorMetrics";
 
+const STATUS_FLOAT_HISTORY_LIMIT = 10;
+
 function getAutoCheckStatus(api, isRunning) {
   if (isRunning && !api?.paused) {
     return {
@@ -23,12 +25,13 @@ export default function StatusFloatWindow({ api, isRunning }) {
     dragEnabled: false,
     pointerId: null,
   });
-  const history = (api?.testHistory || []).slice(-10);
+  const history = (api?.testHistory || []).slice(-STATUS_FLOAT_HISTORY_LIMIT);
   const visibleHistory = history.length ? history : [];
   const title = api?.name || "API 状态";
   const autoCheckStatus = getAutoCheckStatus(api, isRunning);
   const isTesting = api?.status === "testing";
-  const displayHistory = isTesting && visibleHistory.length
+  const shouldReserveLoadingSlot = isTesting && visibleHistory.length >= STATUS_FLOAT_HISTORY_LIMIT;
+  const displayHistory = shouldReserveLoadingSlot
     ? visibleHistory.slice(1)
     : visibleHistory;
 
@@ -63,7 +66,7 @@ export default function StatusFloatWindow({ api, isRunning }) {
       cancelAnimationFrame(frameId);
       resizeObserver.disconnect();
     };
-  }, [api?.id, title, autoCheckStatus.label, visibleHistory.length]);
+  }, [api?.id, title, autoCheckStatus.label, displayHistory.length, isTesting]);
 
   function handleDoubleClick() {
     void window.monitorApi.focusMainWindow();
@@ -156,7 +159,7 @@ export default function StatusFloatWindow({ api, isRunning }) {
       </div>
       <div
         className="status-float-dots"
-        aria-label={`${api?.name || "API"} 最近 10 次状态`}
+        aria-label={`${api?.name || "API"} 最近 ${STATUS_FLOAT_HISTORY_LIMIT} 次状态`}
         onDoubleClick={handleDoubleClick}
       >
         {displayHistory.length ? (
