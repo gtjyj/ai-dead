@@ -6,7 +6,7 @@ const STATUS_FLOAT_HISTORY_LIMIT = 10;
 function getAutoCheckStatus(api, isRunning) {
   if (isRunning && !api?.paused) {
     return {
-      label: "巡检中",
+      label: "运行",
       tone: "running",
     };
   }
@@ -30,7 +30,8 @@ export default function StatusFloatWindow({ api, isRunning }) {
   const title = api?.name || "API 状态";
   const autoCheckStatus = getAutoCheckStatus(api, isRunning);
   const isTesting = api?.status === "testing";
-  const shouldReserveLoadingSlot = isTesting && visibleHistory.length >= STATUS_FLOAT_HISTORY_LIMIT;
+  const shouldReserveLoadingSlot =
+    isTesting && visibleHistory.length >= STATUS_FLOAT_HISTORY_LIMIT;
   const displayHistory = shouldReserveLoadingSlot
     ? visibleHistory.slice(1)
     : visibleHistory;
@@ -42,6 +43,7 @@ export default function StatusFloatWindow({ api, isRunning }) {
     }
 
     let frameId = 0;
+    let cancelled = false;
 
     const syncWindowSize = () => {
       cancelAnimationFrame(frameId);
@@ -56,6 +58,14 @@ export default function StatusFloatWindow({ api, isRunning }) {
 
     syncWindowSize();
 
+    if (document.fonts?.ready) {
+      void document.fonts.ready.then(() => {
+        if (!cancelled) {
+          syncWindowSize();
+        }
+      });
+    }
+
     const resizeObserver = new ResizeObserver(() => {
       syncWindowSize();
     });
@@ -63,6 +73,7 @@ export default function StatusFloatWindow({ api, isRunning }) {
     resizeObserver.observe(cardElement);
 
     return () => {
+      cancelled = true;
       cancelAnimationFrame(frameId);
       resizeObserver.disconnect();
     };
@@ -112,7 +123,9 @@ export default function StatusFloatWindow({ api, isRunning }) {
 
   function handlePointerUp(event) {
     if (dragStateRef.current.pointerId !== null) {
-      event.currentTarget.releasePointerCapture?.(dragStateRef.current.pointerId);
+      event.currentTarget.releasePointerCapture?.(
+        dragStateRef.current.pointerId,
+      );
     }
 
     if (dragStateRef.current.dragEnabled) {
@@ -182,12 +195,10 @@ export default function StatusFloatWindow({ api, isRunning }) {
               <span className="status-float-dot loading" aria-hidden="true" />
             ) : null}
           </>
+        ) : isTesting ? (
+          <span className="status-float-dot loading" aria-hidden="true" />
         ) : (
-          isTesting ? (
-            <span className="status-float-dot loading" aria-hidden="true" />
-          ) : (
-            <span className="status-float-empty">暂无测试结果</span>
-          )
+          <span className="status-float-empty">暂无测试结果</span>
         )}
       </div>
     </div>

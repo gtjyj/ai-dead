@@ -96,9 +96,20 @@ input {
   max-width: 100%;
   min-height: 42px;
   padding: 7px 12px;
+  font-family:
+    "Space Grotesk",
+    "Microsoft YaHei UI",
+    "Microsoft YaHei",
+    "PingFang SC",
+    "Noto Sans CJK SC",
+    "Segoe UI",
+    sans-serif;
   border-radius: 18px;
-  background:
-    linear-gradient(180deg, rgba(48, 48, 54, 0.76), rgba(24, 24, 28, 0.88));
+  background: linear-gradient(
+    180deg,
+    rgba(48, 48, 54, 0.76),
+    rgba(24, 24, 28, 0.88)
+  );
   border: 1px solid rgba(255, 255, 255, 0.08);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
   overflow: hidden;
@@ -117,9 +128,8 @@ input {
 .status-float-metric {
   display: grid;
   gap: 2px;
-  min-width: 70px;
-  max-width: 80px;
   min-width: 0;
+  max-width: 100px;
 }
 
 .status-float-name {
@@ -135,7 +145,12 @@ input {
 }
 
 .status-float-metric-value {
-  font-family: "IBM Plex Mono", monospace;
+  font-family:
+    "IBM Plex Mono",
+    "Microsoft YaHei UI",
+    "Microsoft YaHei",
+    "PingFang SC",
+    monospace;
   font-size: 0.68rem;
   line-height: 1;
 }
@@ -2034,5 +2049,4 @@ input:focus {
   .model-filter-chip {
     width: 100%;
   }
-
 }
