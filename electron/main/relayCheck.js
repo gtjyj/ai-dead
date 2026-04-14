@@ -13,6 +13,7 @@ const {
 } = require('./data');
 
 let providerSdkPromise = null;
+const RESPONSES_STREAM_RETRY_COUNT = 3;
 
 function extractResultText(content) {
   if (!Array.isArray(content)) {
@@ -73,10 +74,11 @@ function extractStreamingPayloadText(payload) {
   return '';
 }
 
-async function readStreamText(stream) {
+async function readStreamResult(stream) {
   const reader = stream.getReader();
   let buffer = '';
   let finalText = '';
+  let sawCompleted = false;
 
   while (true) {
     const { done, value } = await reader.read();
@@ -109,6 +111,7 @@ async function readStreamText(stream) {
       const payloadText = dataLines.join('\n');
 
       if (payloadText === '[DONE]') {
+        sawCompleted = true;
         continue;
       }
 
@@ -116,6 +119,10 @@ async function readStreamText(stream) {
 
       if (!payload) {
         continue;
+      }
+
+      if (payload.type === 'response.completed') {
+        sawCompleted = true;
       }
 
       if (payload.type === 'response.output_text.delta' && typeof payload.delta === 'string') {
@@ -131,7 +138,10 @@ async function readStreamText(stream) {
     }
   }
 
-  return trimText(finalText);
+  return {
+    text: trimText(finalText),
+    sawCompleted,
+  };
 }
 
 async function readResponseText(response) {
@@ -139,55 +149,79 @@ async function readResponseText(response) {
 
   if (contentType.includes('text/event-stream')) {
     if (!response.body) {
-      return '';
+      return {
+        text: '',
+        sawCompleted: false,
+      };
     }
 
-    return readStreamText(response.body);
+    return readStreamResult(response.body);
   }
 
   const rawText = await response.text().catch(() => '');
   const trimmed = trimText(rawText);
 
   if (!trimmed) {
-    return '';
+    return {
+      text: '',
+      sawCompleted: false,
+    };
   }
 
   const payload = parseJsonSafely(trimmed);
 
   if (!payload) {
-    return trimmed;
-  }
-
-  return trimText(extractStreamingPayloadText(payload));
-}
-
-async function tryResponsesStreamFallback(api, signal) {
-  const response = await fetch(`${trimTrailingSlash(api.baseURL)}/responses`, {
-    method: 'POST',
-    signal,
-    headers: {
-      authorization: `Bearer ${api.apiKey}`,
-      'cache-control': 'no-cache',
-      'content-type': 'application/json',
-      'x-relay-pulse-check-id': randomUUID(),
-    },
-    body: JSON.stringify({
-      model: api.model,
-      store: false,
-      stream: true,
-      input: 'Return OK only.',
-    }),
-  });
-
-  if (!response.ok) {
     return {
-      text: '',
-      method: 'responses / stream',
+      text: trimmed,
+      sawCompleted: false,
     };
   }
 
   return {
-    text: await readResponseText(response),
+    text: trimText(extractStreamingPayloadText(payload)),
+    sawCompleted: payload.type === 'response.completed',
+  };
+}
+
+async function tryResponsesStreamFallback(api, signal) {
+  for (let attempt = 1; attempt <= RESPONSES_STREAM_RETRY_COUNT; attempt += 1) {
+    const response = await fetch(`${trimTrailingSlash(api.baseURL)}/responses`, {
+      method: 'POST',
+      signal,
+      headers: {
+        accept: 'text/event-stream',
+        authorization: `Bearer ${api.apiKey}`,
+        'cache-control': 'no-cache',
+        'content-type': 'application/json',
+        'x-relay-pulse-check-id': randomUUID(),
+      },
+      body: JSON.stringify({
+        model: api.model,
+        store: false,
+        stream: true,
+        input: 'Return OK only.',
+      }),
+    });
+
+    if (!response.ok) {
+      return {
+        text: '',
+        method: 'responses / stream',
+      };
+    }
+
+    const { text, sawCompleted } = await readResponseText(response);
+
+    if (text || sawCompleted || attempt === RESPONSES_STREAM_RETRY_COUNT) {
+      return {
+        text,
+        method: attempt > 1 ? `responses / stream (retry ${attempt})` : 'responses / stream',
+      };
+    }
+  }
+
+  return {
+    text: '',
     method: 'responses / stream',
   };
 }
@@ -201,6 +235,17 @@ function buildSuccessMessage(text, method) {
   }
 
   return `${normalizedText}（响应方式：${normalizedMethod}）`;
+}
+
+function shouldFallbackToResponses(error) {
+  const message = trimText(error?.message).toLowerCase();
+  const nestedMessage = trimText(error?.cause?.message).toLowerCase();
+
+  return [message, nestedMessage].some(text => (
+    text.includes('unexpected end of json input')
+    || text.includes('invalid json response')
+    || text.includes('stream closed before response.completed')
+  ));
 }
 
 async function getProviderSdk() {
@@ -238,37 +283,50 @@ async function runSingleCheck(api) {
       fetch: createProviderFetch(api.model),
     });
     const model = provider.chatModel(api.model);
-    const result = await model.doGenerate({
-      prompt: [
-        {
-          role: 'system',
-          content: [{ type: 'text', text: 'This is an isolated health check. Do not use or assume any previous context. Reply with OK only.' }],
-        },
-        {
-          role: 'user',
-          content: [{ type: 'text', text: 'Return OK only.' }],
-        },
-      ],
-      temperature: 0,
-      maxOutputTokens: 12,
-      abortSignal: controller.signal,
-      headers: {
-        'cache-control': 'no-cache',
-        'x-relay-pulse-check-id': randomUUID(),
-      },
-      providerOptions: {
-        [providerName]: {
-          store: false,
-        },
-      },
-    });
-
-    let responseText = trimText(
-      extractResultText(result?.content)
-      || result?.text
-      || result?.outputText,
-    );
+    let sdkError = null;
+    let responseText = '';
     let responseMethod = 'chat.completions / non-stream';
+
+    try {
+      const result = await model.doGenerate({
+        prompt: [
+          {
+            role: 'system',
+            content: [{ type: 'text', text: 'This is an isolated health check. Do not use or assume any previous context. Reply with OK only.' }],
+          },
+          {
+            role: 'user',
+            content: [{ type: 'text', text: 'Return OK only.' }],
+          },
+        ],
+        temperature: 0,
+        maxOutputTokens: 12,
+        abortSignal: controller.signal,
+        headers: {
+          'cache-control': 'no-cache',
+          'x-relay-pulse-check-id': randomUUID(),
+        },
+        providerOptions: {
+          [providerName]: {
+            store: false,
+          },
+        },
+      });
+
+      responseText = trimText(
+        extractResultText(result?.content)
+        || result?.text
+        || result?.outputText,
+      );
+    } catch (error) {
+      sdkError = error;
+
+      if (!shouldFallbackToResponses(error)) {
+        throw error;
+      }
+
+      responseMethod = 'chat.completions / non-stream -> responses / stream';
+    }
 
     if (!responseText) {
       const fallback = await tryResponsesStreamFallback(api, controller.signal).catch(() => null);
@@ -279,6 +337,10 @@ async function runSingleCheck(api) {
       } else if (fallback?.method) {
         responseMethod = `${responseMethod} -> ${fallback.method}`;
       }
+    }
+
+    if (!responseText && sdkError) {
+      throw sdkError;
     }
 
     const detail = buildSuccessMessage(responseText, responseMethod);
