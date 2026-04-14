@@ -199,7 +199,17 @@ async function tryResponsesStreamFallback(api, signal) {
         model: api.model,
         store: false,
         stream: true,
-        input: 'Return OK only.',
+        input: [
+          {
+            role: 'user',
+            content: [
+              {
+                type: 'input_text',
+                text: 'Return OK only.',
+              },
+            ],
+          },
+        ],
       }),
     });
 
@@ -245,6 +255,9 @@ function shouldFallbackToResponses(error) {
     text.includes('unexpected end of json input')
     || text.includes('invalid json response')
     || text.includes('stream closed before response.completed')
+    || text.includes('stream must be set to true')
+    || text.includes('input must be a list')
+    || text.includes('bad request')
   ));
 }
 
