@@ -197,16 +197,44 @@ function formatModelDisplayName(model) {
 function buildOpenCodeProvider(api, providerKey) {
   const vendor = trimText(api?.vendor).toLowerCase() || "openai";
 
-  if (
-    vendor === "openai" ||
-    vendor === "gemini" ||
-    vendor === "anthropic" ||
-    vendor === "other"
-  ) {
+  if (vendor === "anthropic") {
+    return buildAnthropicOpenCodeProvider(api, providerKey);
+  }
+
+  if (vendor === "openai" || vendor === "gemini" || vendor === "other") {
     return buildOpenAiCompatibleOpenCodeProvider(api, providerKey);
   }
 
   throw new Error(`暂不支持将 ${vendor} 厂商配置写入 OpenCode。`);
+}
+
+function buildAnthropicOpenCodeProvider(api, providerKey) {
+  return {
+    models: {
+      [api.model]: {
+        name: formatModelDisplayName(api.model) || api.model,
+        options: {
+          store: false,
+        },
+        modalities: {
+          input: ["text", "image", "pdf"],
+          output: ["text"],
+        },
+        variants: {
+          high: {},
+          low: {},
+          medium: {},
+          xhigh: {},
+        },
+      },
+    },
+    name: providerKey,
+    npm: "@ai-sdk/anthropic",
+    options: {
+      apiKey: api.apiKey,
+      baseURL: api.baseURL,
+    },
+  };
 }
 
 function buildOpenAiCompatibleOpenCodeProvider(api, providerKey) {
