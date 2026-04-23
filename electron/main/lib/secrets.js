@@ -90,6 +90,22 @@ function decryptGistSyncSecrets(gistSync) {
   };
 }
 
+function encryptRemoteMachineSecrets(machine) {
+  return {
+    ...machine,
+    password: encryptSecret(machine?.password),
+    privateKey: encryptSecret(machine?.privateKey),
+  };
+}
+
+function decryptRemoteMachineSecrets(machine) {
+  return {
+    ...machine,
+    password: decryptSecret(machine?.password),
+    privateKey: decryptSecret(machine?.privateKey),
+  };
+}
+
 function hasLegacyPlaintextSecrets(parsed) {
   const hasPlainApiSecret = Array.isArray(parsed?.apis) && parsed.apis.some(
     api => (typeof api?.apiKey === 'string' && api.apiKey && !isEncryptedSecret(api.apiKey))
@@ -100,15 +116,23 @@ function hasLegacyPlaintextSecrets(parsed) {
     && parsed.gistSync.token
     && !isEncryptedSecret(parsed.gistSync.token);
 
-  return hasPlainApiSecret || hasPlainGistToken;
+  const hasPlainRemoteMachineSecret = Array.isArray(parsed?.remoteMachines)
+    && parsed.remoteMachines.some(machine => (
+      (typeof machine?.password === 'string' && machine.password && !isEncryptedSecret(machine.password))
+      || (typeof machine?.privateKey === 'string' && machine.privateKey && !isEncryptedSecret(machine.privateKey))
+    ));
+
+  return hasPlainApiSecret || hasPlainGistToken || hasPlainRemoteMachineSecret;
 }
 
 module.exports = {
   decryptApiSecrets,
   decryptGistSyncSecrets,
+  decryptRemoteMachineSecrets,
   decryptSecret,
   encryptApiSecrets,
   encryptGistSyncSecrets,
+  encryptRemoteMachineSecrets,
   encryptSecret,
   hasLegacyPlaintextSecrets,
   isEncryptedSecret,

@@ -1,10 +1,14 @@
 const { addEvent, buildPublicState, emitState, persistedState } = require('./store');
 const {
+  buildRemoteMachinesSyncExport,
   buildSyncExportState,
   clampInterval,
   normalizeGistSyncSettings,
   normalizeImportedApis,
+  normalizeImportedRemoteMachines,
+  normalizeRemoteMachinesSyncSettings,
   savePersistedState,
+  saveRemoteMachinesState,
 } = require('./data');
 const { normalizeBaseURL, trimText } = require('./lib/text');
 
@@ -111,6 +115,37 @@ function mergeImportedApis(localApis, importedApis) {
   return [...mergedImportedApis, ...remainingLocalApis];
 }
 
+function mergeImportedRemoteMachines(localMachines, importedMachines) {
+  const remainingLocalMachines = [...localMachines];
+
+  const mergedImportedMachines = importedMachines.map(importedMachine => {
+    const importedId = trimText(importedMachine?.id);
+    const importedHost = trimText(importedMachine?.host).toLowerCase();
+    const importedUsername = trimText(importedMachine?.username).toLowerCase();
+    const matchedIndex = remainingLocalMachines.findIndex(localMachine => {
+      const localId = trimText(localMachine?.id);
+      const localHost = trimText(localMachine?.host).toLowerCase();
+      const localUsername = trimText(localMachine?.username).toLowerCase();
+
+      if (importedId && localId && importedId === localId) {
+        return true;
+      }
+
+      return importedHost && importedUsername
+        && importedHost === localHost
+        && importedUsername === localUsername;
+    });
+
+    if (matchedIndex >= 0) {
+      remainingLocalMachines.splice(matchedIndex, 1);
+    }
+
+    return importedMachine;
+  });
+
+  return [...mergedImportedMachines, ...remainingLocalMachines];
+}
+
 async function fetchGistFileContent(file, headers) {
   if (typeof file?.content === 'string' && !file?.truncated) {
     return file.content;
@@ -142,6 +177,9 @@ async function syncConfigToGist(request) {
       'relay-pulse-config.json': {
         content: JSON.stringify(buildSyncExportState(), null, 2),
       },
+      'relay-pulse-remote-machines.json': {
+        content: JSON.stringify(buildRemoteMachinesSyncExport(), null, 2),
+      },
     },
     public: false,
   });
@@ -158,6 +196,41 @@ async function syncConfigToGist(request) {
 
   return {
     gistId: persistedState.gistSync.gistId,
+    gistUrl: payload?.html_url || '',
+    snapshot: buildPublicState(),
+  };
+}
+
+async function syncRemoteMachinesToGist(request) {
+  const gistSync = normalizeGistSyncSettings(request?.settings || request);
+  const remoteMachinesSync = normalizeRemoteMachinesSyncSettings(request?.remoteMachinesSync || request);
+
+  if (!gistSync.token) {
+    throw new Error('请先填写 GitHub Token。');
+  }
+
+  const payload = await updateOrCreateGist({
+    token: gistSync.token,
+    gistId: remoteMachinesSync.gistId,
+  }, {
+    description: 'Relay Pulse remote machines backup',
+    files: {
+      'relay-pulse-remote-machines.json': {
+        content: JSON.stringify(buildRemoteMachinesSyncExport(), null, 2),
+      },
+    },
+    public: false,
+  });
+
+  persistedState.remoteMachinesSync = {
+    gistId: payload?.id || remoteMachinesSync.gistId,
+  };
+  await saveRemoteMachinesState();
+  addEvent('info', '远程机器已同步到 GitHub Gist。');
+  emitState();
+
+  return {
+    gistId: persistedState.remoteMachinesSync.gistId,
     gistUrl: payload?.html_url || '',
     snapshot: buildPublicState(),
   };
@@ -200,15 +273,35 @@ async function restoreConfigFromGist(request) {
   }
 
   const importedApis = normalizeImportedApis(parsed?.apis);
+  const remoteMachinesFile = files['relay-pulse-remote-machines.json'];
+  let importedRemoteMachines = [];
+
+  if (remoteMachinesFile) {
+    const rawRemoteMachinesContent = await fetchGistFileContent(remoteMachinesFile, headers);
+
+    try {
+      const parsedRemoteMachines = JSON.parse(rawRemoteMachinesContent);
+      importedRemoteMachines = normalizeImportedRemoteMachines(parsedRemoteMachines?.remoteMachines);
+    } catch (_error) {
+      throw new Error('Gist 中的远程机器配置文件不是有效的 JSON。');
+    }
+  }
+
   persistedState.apis = restoreMode === 'merge'
     ? mergeImportedApis(persistedState.apis, importedApis)
     : importedApis;
+  if (remoteMachinesFile) {
+    persistedState.remoteMachines = restoreMode === 'merge'
+      ? mergeImportedRemoteMachines(persistedState.remoteMachines, importedRemoteMachines)
+      : importedRemoteMachines;
+  }
   persistedState.intervalSeconds = restoreMode === 'merge'
     ? persistedState.intervalSeconds
     : clampInterval(parsed?.intervalSeconds);
   persistedState.gistSync = gistSync;
 
   await savePersistedState();
+  await saveRemoteMachinesState();
   addEvent(
     'info',
     restoreMode === 'merge'
@@ -225,7 +318,70 @@ async function restoreConfigFromGist(request) {
   };
 }
 
+async function restoreRemoteMachinesFromGist(request) {
+  const gistSync = normalizeGistSyncSettings(request?.settings || request);
+  const remoteMachinesSync = normalizeRemoteMachinesSyncSettings(request?.remoteMachinesSync || request);
+  const restoreMode = normalizeRestoreMode(request?.mode);
+
+  if (!gistSync.token) {
+    throw new Error('请先填写 GitHub Token。');
+  }
+
+  if (!remoteMachinesSync.gistId) {
+    throw new Error('当前还没有远程机器 Gist ID，请先执行一次“同步到 Gist”。');
+  }
+
+  const headers = buildGitHubGistHeaders(gistSync.token);
+  delete headers['Content-Type'];
+  const response = await fetch(`https://api.github.com/gists/${remoteMachinesSync.gistId}`, {
+    headers,
+  });
+  const payload = await parseGitHubResponse(response);
+  if (!response.ok) {
+    throw new Error(formatGitHubGistError(payload, '从 GitHub Gist 读取远程机器配置失败。'));
+  }
+
+  const files = payload?.files || {};
+  const remoteMachinesFile = files['relay-pulse-remote-machines.json']
+    || Object.values(files).find(file => String(file?.filename || '').endsWith('.json'));
+  if (!remoteMachinesFile) {
+    throw new Error('Gist 中没有找到 relay-pulse-remote-machines.json。');
+  }
+
+  const rawRemoteMachinesContent = await fetchGistFileContent(remoteMachinesFile, headers);
+  let parsedRemoteMachines;
+  try {
+    parsedRemoteMachines = JSON.parse(rawRemoteMachinesContent);
+  } catch (_error) {
+    throw new Error('远程机器配置文件不是有效的 JSON。');
+  }
+
+  const importedRemoteMachines = normalizeImportedRemoteMachines(parsedRemoteMachines?.remoteMachines);
+  persistedState.remoteMachines = restoreMode === 'merge'
+    ? mergeImportedRemoteMachines(persistedState.remoteMachines, importedRemoteMachines)
+    : importedRemoteMachines;
+  persistedState.remoteMachinesSync = remoteMachinesSync;
+
+  await saveRemoteMachinesState();
+  addEvent(
+    'info',
+    restoreMode === 'merge'
+      ? '已从 GitHub Gist 合并远程机器配置。'
+      : '已从 GitHub Gist 恢复远程机器配置。',
+  );
+  emitState();
+
+  return {
+    gistId: remoteMachinesSync.gistId,
+    gistUrl: payload?.html_url || '',
+    mode: restoreMode,
+    snapshot: buildPublicState(),
+  };
+}
+
 module.exports = {
   restoreConfigFromGist,
+  restoreRemoteMachinesFromGist,
   syncConfigToGist,
+  syncRemoteMachinesToGist,
 };

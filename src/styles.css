@@ -264,6 +264,12 @@ input {
   color: #f6f9ff;
 }
 
+.top-toast.loading {
+  border-color: rgba(212, 145, 42, 0.26);
+  background: rgba(176, 118, 23, 0.96);
+  color: #fff9ec;
+}
+
 .ambient {
   position: fixed;
   inset: auto;
@@ -1001,6 +1007,146 @@ input:focus {
   gap: 12px;
 }
 
+.remote-machines-modal {
+  width: min(1080px, 100%);
+  max-width: min(1080px, calc(100vw - 48px));
+}
+
+.remote-machines-layout {
+  display: grid;
+  grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
+  align-items: start;
+  gap: 18px;
+}
+
+.remote-machines-list-block,
+.remote-machines-form-block {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+  align-content: start;
+}
+
+.remote-machine-list {
+  display: grid;
+  gap: 12px;
+  align-content: start;
+}
+
+.remote-machine-list-shell {
+  max-height: min(48vh, 460px);
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.remote-machine-list-shell::-webkit-scrollbar {
+  width: 8px;
+}
+
+.remote-machine-list-shell::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgba(109, 88, 70, 0.2);
+}
+
+.remote-machine-item {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 14px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(109, 88, 70, 0.14);
+  background: rgba(255, 255, 255, 0.58);
+}
+
+.remote-machine-item-main {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.remote-machine-item-main strong {
+  color: var(--text);
+}
+
+.remote-machine-item-main span {
+  color: var(--muted);
+  font-size: 0.88rem;
+  line-height: 1.5;
+  word-break: break-all;
+}
+
+.remote-machine-item-actions {
+  flex: 0 0 auto;
+  width: auto;
+  justify-content: flex-end;
+}
+
+.remote-machine-empty-state {
+  min-height: 160px;
+}
+
+.remote-machine-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.remote-machine-auth-fieldset {
+  display: grid;
+  gap: 12px;
+}
+
+.remote-machine-auth-switch-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.remote-machine-auth-hint {
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.remote-machine-secret-input {
+  min-height: 168px;
+  padding: 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(109, 88, 70, 0.18);
+  outline: none;
+  background: rgba(255, 255, 255, 0.68);
+  resize: vertical;
+  font: inherit;
+}
+
+.remote-machine-secret-input:focus {
+  border-color: rgba(210, 108, 50, 0.58);
+  box-shadow: 0 0 0 4px rgba(210, 108, 50, 0.12);
+}
+
+.remote-machine-gist-panel {
+  margin-top: 18px;
+}
+
+@media (max-width: 980px) {
+  .remote-machines-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .remote-machine-list-shell {
+    max-height: none;
+    overflow: visible;
+    padding-right: 0;
+  }
+
+  .remote-machine-item-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+}
+
 .gist-id-note {
   display: grid;
   gap: 6px;
@@ -1407,6 +1553,35 @@ input:focus {
     color 140ms ease;
 }
 
+.relay-menu-item-submenu {
+  position: relative;
+  padding: 0;
+  overflow: visible;
+}
+
+.relay-menu-item-button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  min-height: 40px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.relay-menu-item-submenu:hover .relay-menu-item-button,
+.relay-menu-item-button:focus-visible {
+  background: rgba(210, 108, 50, 0.1);
+  color: var(--accent-strong);
+  outline: none;
+}
+
 .relay-menu-item:hover {
   background: rgba(210, 108, 50, 0.1);
   color: var(--accent-strong);
@@ -1417,6 +1592,30 @@ input:focus {
   height: 16px;
   fill: currentColor;
   flex: 0 0 16px;
+}
+
+.relay-submenu-popover {
+  position: absolute;
+  top: -8px;
+  left: calc(100% - 2px);
+  display: none;
+  min-width: 180px;
+  padding: 8px;
+  border: 1px solid rgba(109, 88, 70, 0.14);
+  border-radius: 16px;
+  background: rgba(255, 252, 247, 0.98);
+  box-shadow: 0 20px 36px rgba(36, 23, 15, 0.16);
+  backdrop-filter: blur(18px);
+}
+
+.relay-menu-item-submenu-left .relay-submenu-popover {
+  left: auto;
+  right: calc(100% - 2px);
+}
+
+.relay-submenu-popover.visible {
+  display: grid;
+  gap: 4px;
 }
 
 .relay-menu-item.danger {
@@ -2004,6 +2203,19 @@ input:focus {
     flex-direction: column;
   }
 
+  .remote-machine-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .remote-machine-item {
+    flex-direction: column;
+  }
+
+  .remote-machine-item-actions {
+    width: 100%;
+    justify-content: stretch;
+  }
+
   .relay-panel-header-right {
     width: 100%;
     justify-content: stretch;
@@ -2040,6 +2252,11 @@ input:focus {
     left: auto;
     right: 0;
     bottom: calc(100% + 8px);
+  }
+
+  .relay-submenu-popover {
+    top: calc(100% - 2px);
+    left: 0;
   }
 
   .text-button,

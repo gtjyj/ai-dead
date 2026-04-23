@@ -11,13 +11,16 @@ const { addEvent, buildPublicState, emitState, persistedState } = require('./sto
 const {
   decryptApiSecrets,
   decryptGistSyncSecrets,
+  decryptRemoteMachineSecrets,
   encryptApiSecrets,
   encryptGistSyncSecrets,
+  encryptRemoteMachineSecrets,
   hasLegacyPlaintextSecrets,
 } = require('./lib/secrets');
 const { normalizeBaseURL, compactText, trimText } = require('./lib/text');
 
 let dataFilePath = '';
+let remoteMachinesFilePath = '';
 
 function normalizeNetworkCheckURL(value) {
   const target = trimText(value) || 'https://baidu.com';
@@ -92,12 +95,61 @@ function getDataFilePath() {
   return path.join(app.getPath('home'), 'relay-pulse.json');
 }
 
+function getRemoteMachinesFilePath() {
+  return path.join(app.getPath('home'), 'relay-pulse-remote-machines.json');
+}
+
 function normalizeGistSyncSettings(settings) {
   const decrypted = decryptGistSyncSecrets(settings || {});
 
   return {
     token: trimText(decrypted?.token),
     gistId: trimText(decrypted?.gistId),
+  };
+}
+
+function normalizeRemoteMachinesSyncSettings(settings) {
+  return {
+    gistId: trimText(settings?.gistId),
+  };
+}
+
+function normalizeRemoteMachineAuthType(value) {
+  return value === 'key' ? 'key' : 'password';
+}
+
+function clampSshPort(value) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) {
+    return 22;
+  }
+
+  return Math.min(Math.max(Math.round(parsed), 1), 65535);
+}
+
+function normalizeRemoteMachineRecord(machine) {
+  const decrypted = decryptRemoteMachineSecrets(machine || {});
+
+  return {
+    id: trimText(decrypted?.id) || randomUUID(),
+    name: trimText(decrypted?.name),
+    host: trimText(decrypted?.host),
+    username: trimText(decrypted?.username),
+    port: clampSshPort(decrypted?.port),
+    authType: normalizeRemoteMachineAuthType(decrypted?.authType),
+    password: typeof decrypted?.password === 'string' ? decrypted.password : '',
+    privateKey: typeof decrypted?.privateKey === 'string' ? decrypted.privateKey : '',
+    createdAt: decrypted?.createdAt || null,
+    updatedAt: decrypted?.updatedAt || null,
+  };
+}
+
+function buildRemoteMachinesSyncExport() {
+  return {
+    remoteMachines: persistedState.remoteMachines.map(machine => encryptRemoteMachineSecrets(machine)),
+    exportedAt: new Date().toISOString(),
+    source: 'relay-pulse-remote-machines',
+    version: 1,
   };
 }
 
@@ -180,8 +232,28 @@ async function savePersistedState() {
   );
 }
 
+async function saveRemoteMachinesState() {
+  const serializedRemoteMachines = persistedState.remoteMachines.map(machine =>
+    encryptRemoteMachineSecrets(machine),
+  );
+
+  await fs.writeFile(
+    remoteMachinesFilePath,
+    JSON.stringify(
+      {
+        remoteMachines: serializedRemoteMachines,
+        remoteMachinesSync: persistedState.remoteMachinesSync,
+      },
+      null,
+      2,
+    ),
+    'utf8',
+  );
+}
+
 async function loadPersistedState() {
   dataFilePath = getDataFilePath();
+  remoteMachinesFilePath = getRemoteMachinesFilePath();
 
   try {
     const raw = await fs.readFile(dataFilePath, 'utf8');
@@ -216,6 +288,23 @@ async function loadPersistedState() {
     persistedState.networkCheckURL = normalizeNetworkCheckURL();
     persistedState.openStatusFloatApiIds = [];
     await savePersistedState();
+  }
+
+  try {
+    const rawRemoteMachines = await fs.readFile(remoteMachinesFilePath, 'utf8');
+    const parsedRemoteMachines = JSON.parse(rawRemoteMachines);
+    persistedState.remoteMachines = Array.isArray(parsedRemoteMachines?.remoteMachines)
+      ? parsedRemoteMachines.remoteMachines.map(machine => normalizeRemoteMachineRecord(machine))
+      : [];
+    persistedState.remoteMachinesSync = normalizeRemoteMachinesSyncSettings(parsedRemoteMachines?.remoteMachinesSync);
+
+    if (hasLegacyPlaintextSecrets(parsedRemoteMachines)) {
+      await saveRemoteMachinesState();
+    }
+  } catch (_error) {
+    persistedState.remoteMachines = [];
+    persistedState.remoteMachinesSync = normalizeRemoteMachinesSyncSettings();
+    await saveRemoteMachinesState();
   }
 }
 
@@ -332,6 +421,103 @@ async function updateMonitoringSettings(payload) {
   return buildPublicState();
 }
 
+function validateRemoteMachinePayload(payload) {
+  const name = trimText(payload?.name);
+  const host = trimText(payload?.host);
+  const username = trimText(payload?.username);
+  const port = clampSshPort(payload?.port);
+  const authType = normalizeRemoteMachineAuthType(payload?.authType);
+  const password = typeof payload?.password === 'string' ? payload.password : '';
+  const privateKey = typeof payload?.privateKey === 'string' ? payload.privateKey : '';
+
+  if (!host || !username) {
+    throw new Error('请完整填写主机地址和账号。');
+  }
+
+  if (authType === 'password' && !password) {
+    throw new Error('请选择密码登录时填写密码。');
+  }
+
+  if (authType === 'key' && !privateKey) {
+    throw new Error('请选择密钥登录时填写私钥内容。');
+  }
+
+  return {
+    name,
+    host,
+    username,
+    port,
+    authType,
+    password,
+    privateKey,
+  };
+}
+
+async function saveRemoteMachinePayload(payload) {
+  const validated = validateRemoteMachinePayload(payload);
+  const timestamp = new Date().toISOString();
+  const existingId = trimText(payload?.id);
+
+  if (existingId) {
+    persistedState.remoteMachines = persistedState.remoteMachines.map(machine => {
+      if (machine.id !== existingId) {
+        return machine;
+      }
+
+      return {
+        ...machine,
+        ...validated,
+        updatedAt: timestamp,
+      };
+    });
+    addEvent('info', '远程机器配置已更新。', validated.name || validated.host);
+  } else {
+    persistedState.remoteMachines = [
+      {
+        id: randomUUID(),
+        ...validated,
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      },
+      ...persistedState.remoteMachines,
+    ];
+    addEvent('info', '已添加远程机器。', validated.name || validated.host);
+  }
+
+  await saveRemoteMachinesState();
+  emitState();
+  return buildPublicState();
+}
+
+async function deleteRemoteMachineById(machineId) {
+  const targetId = trimText(machineId);
+  const target = persistedState.remoteMachines.find(machine => machine.id === targetId);
+  persistedState.remoteMachines = persistedState.remoteMachines.filter(machine => machine.id !== targetId);
+  await saveRemoteMachinesState();
+  addEvent('info', '远程机器已删除。', target?.name || target?.host);
+  emitState();
+  return buildPublicState();
+}
+
+function normalizeImportedRemoteMachines(remoteMachines) {
+  if (!Array.isArray(remoteMachines)) {
+    return [];
+  }
+
+  return remoteMachines.map(machine => {
+    const decryptedMachine = decryptRemoteMachineSecrets(machine);
+    const validated = validateRemoteMachinePayload(decryptedMachine);
+    const timestamp = new Date().toISOString();
+
+    return {
+      id: trimText(machine?.id) || randomUUID(),
+      ...validated,
+      createdAt: machine?.createdAt || timestamp,
+      updatedAt: machine?.updatedAt || timestamp,
+    };
+  });
+}
+
 async function setApiPaused(apiId, paused) {
   const target = persistedState.apis.find(api => api.id === apiId);
 
@@ -435,18 +621,26 @@ module.exports = {
   clampRequestTimeoutSeconds,
   clearAllTestHistory,
   deleteApiById,
+  deleteRemoteMachineById,
   getRequestTimeoutMs,
   loadPersistedState,
+  buildRemoteMachinesSyncExport,
   normalizeGistSyncSettings,
   normalizeImportedApis,
+  normalizeImportedRemoteMachines,
+  normalizeRemoteMachinesSyncSettings,
   normalizeMonitorMode,
   normalizeOpenStatusFloatApiIds,
+  normalizeRemoteMachineRecord,
   normalizeTestHistory,
   saveApiPayload,
   savePersistedState,
+  saveRemoteMachinePayload,
+  saveRemoteMachinesState,
   saveOpenStatusFloatApiIds,
   setApiPaused,
   updateMonitoringSettings,
   updateApiRecord,
   validateApiPayload,
+  validateRemoteMachinePayload,
 };

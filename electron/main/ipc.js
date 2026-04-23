@@ -6,11 +6,18 @@ const {
   clearAllTestHistory,
   clearApiTestHistory,
   deleteApiById,
+  deleteRemoteMachineById,
   saveApiPayload,
+  saveRemoteMachinePayload,
   setApiPaused,
   updateMonitoringSettings,
 } = require('./data');
-const { restoreConfigFromGist, syncConfigToGist } = require('./gist');
+const {
+  restoreConfigFromGist,
+  restoreRemoteMachinesFromGist,
+  syncConfigToGist,
+  syncRemoteMachinesToGist,
+} = require('./gist');
 const { checkNetworkConnectivity } = require('./network');
 const {
   refreshMonitoringSchedule,
@@ -44,6 +51,8 @@ function registerMonitorIpc() {
   ipcMain.handle('monitor:get-bootstrap', async () => buildPublicState());
   ipcMain.handle('monitor:save-api', async (_event, payload) => saveApiPayload(payload));
   ipcMain.handle('monitor:delete-api', async (_event, apiId) => deleteApiById(apiId));
+  ipcMain.handle('monitor:save-remote-machine', async (_event, payload) => saveRemoteMachinePayload(payload));
+  ipcMain.handle('monitor:delete-remote-machine', async (_event, machineId) => deleteRemoteMachineById(machineId));
   ipcMain.handle('monitor:start', async (_event, settings) => startMonitoring(settings));
   ipcMain.handle('monitor:stop', async () => {
     stopMonitoring();
@@ -61,7 +70,9 @@ function registerMonitorIpc() {
   ipcMain.handle('monitor:clear-api-history', async (_event, apiId) => clearApiTestHistory(apiId));
   ipcMain.handle('monitor:apply-api-config', async (_event, payload) => applyApiToTarget(payload));
   ipcMain.handle('monitor:restore-gist', async (_event, settings) => restoreConfigFromGist(settings));
+  ipcMain.handle('monitor:restore-remote-machines-gist', async (_event, settings) => restoreRemoteMachinesFromGist(settings));
   ipcMain.handle('monitor:sync-gist', async (_event, settings) => syncConfigToGist(settings));
+  ipcMain.handle('monitor:sync-remote-machines-gist', async (_event, settings) => syncRemoteMachinesToGist(settings));
   ipcMain.handle('monitor:check-network', async () => checkNetworkConnectivity(true));
   ipcMain.handle('monitor:open-status-float', async (_event, apiId) => openStatusFloat(apiId));
   ipcMain.handle('monitor:close-status-float', async (_event, apiId) => closeStatusFloat(apiId));

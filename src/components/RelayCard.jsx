@@ -88,6 +88,18 @@ function ClearHistoryIcon() {
   );
 }
 
+function ChevronRightIcon({ direction = "right" }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      style={direction === "left" ? { transform: "rotate(180deg)" } : undefined}
+    >
+      <path d="M9 6l6 6-6 6-1.4-1.4 4.6-4.6-4.6-4.6L9 6z" />
+    </svg>
+  );
+}
+
 function VendorBadge({ vendor }) {
   const normalizedVendor = String(vendor || "openai").toLowerCase();
   const assetBase = import.meta.env.BASE_URL || "./";
@@ -129,10 +141,13 @@ export default function RelayCard({
   statusFloatOpen,
   onSingleCheck,
   onTogglePause,
+  remoteMachines = [],
   unfocused = false,
   visibleHistory,
 }) {
   const [actionMenuOpen, setActionMenuOpen] = useState(false);
+  const [activeSubmenu, setActiveSubmenu] = useState("");
+  const [submenuDirection, setSubmenuDirection] = useState({});
   const actionMenuRef = useRef(null);
   const actionButtonRef = useRef(null);
   const currentIntervalSeconds =
@@ -147,12 +162,105 @@ export default function RelayCard({
   const floatSwitchLabel = statusFloatOpen ? "关闭状态浮窗" : "显示状态浮窗";
 
   async function handleApply(target) {
+    setActiveSubmenu("");
     await onApplyApiConfig(api, target);
   }
 
   async function handleAction(action) {
     setActionMenuOpen(false);
+    setActiveSubmenu("");
     await action();
+  }
+
+  function updateSubmenuDirection(tool, event) {
+    const submenuItem = event?.currentTarget;
+    if (!submenuItem) {
+      return;
+    }
+
+    const viewportWidth = window.innerWidth || 0;
+    const itemRect = submenuItem.getBoundingClientRect();
+    const estimatedSubmenuWidth = 188;
+    const shouldOpenLeft = itemRect.right + estimatedSubmenuWidth > viewportWidth - 12;
+
+    setSubmenuDirection((current) => {
+      const nextDirection = shouldOpenLeft ? "left" : "right";
+      if (current[tool] === nextDirection) {
+        return current;
+      }
+
+      return {
+        ...current,
+        [tool]: nextDirection,
+      };
+    });
+  }
+
+  function renderApplySubmenu(tool, label) {
+    const direction = submenuDirection[tool] === "left" ? "left" : "right";
+
+    return (
+      <div
+        className={`relay-menu-item relay-menu-item-submenu relay-menu-item-submenu-${direction}`}
+        role="none"
+        onMouseEnter={(event) => {
+          updateSubmenuDirection(tool, event);
+          setActiveSubmenu(tool);
+        }}
+      >
+        <button
+          className="relay-menu-item-button"
+          type="button"
+          role="menuitem"
+          aria-haspopup="menu"
+          aria-expanded={activeSubmenu === tool}
+          onFocus={(event) => {
+            updateSubmenuDirection(tool, event);
+            setActiveSubmenu(tool);
+          }}
+          onClick={(event) => event.preventDefault()}
+        >
+          <span>{label}</span>
+          <ChevronRightIcon direction={direction} />
+        </button>
+        <div
+          className={`relay-submenu-popover${activeSubmenu === tool ? " visible" : ""}`}
+          role="menu"
+        >
+          <button
+            className="relay-menu-item"
+            type="button"
+            role="menuitem"
+            onClick={() => handleAction(() => handleApply({ scope: "local", tool }))}
+          >
+            <span>本机</span>
+          </button>
+          {remoteMachines.map((machine) => {
+            const machineName = machine.name || machine.host || "未命名机器";
+
+            return (
+              <button
+                key={`${tool}-${machine.id}`}
+                className="relay-menu-item"
+                type="button"
+                role="menuitem"
+                onClick={() =>
+                  handleAction(() =>
+                    handleApply({
+                      machineId: machine.id,
+                      scope: "remote",
+                      tool,
+                    }),
+                  )
+                }
+              >
+                <span>{machineName}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -265,7 +373,11 @@ export default function RelayCard({
                   placement="top-end"
                   portalClassName="relay-menu-popover-portal"
                 >
-                  <div className="relay-menu-popover-surface" role="menu">
+                  <div
+                    className="relay-menu-popover-surface"
+                    role="menu"
+                    onMouseLeave={() => setActiveSubmenu("")}
+                  >
                         <button
                           className="relay-menu-item"
                           type="button"
@@ -295,24 +407,8 @@ export default function RelayCard({
                           <ClearHistoryIcon />
                           <span>清空历史结果</span>
                         </button>
-                        {canApplyToCodex ? (
-                          <button
-                            className="relay-menu-item"
-                            type="button"
-                            role="menuitem"
-                            onClick={() => handleAction(() => handleApply("codex"))}
-                          >
-                            <span>应用到 Codex-Cli</span>
-                          </button>
-                        ) : null}
-                        <button
-                          className="relay-menu-item"
-                          type="button"
-                          role="menuitem"
-                          onClick={() => handleAction(() => handleApply("opencode"))}
-                        >
-                          <span>应用到 OpenCode</span>
-                        </button>
+                        {canApplyToCodex ? renderApplySubmenu("codex", "应用到 Codex-Cli") : null}
+                        {renderApplySubmenu("opencode", "应用到 OpenCode")}
                         <button
                           className="relay-menu-item danger"
                           type="button"

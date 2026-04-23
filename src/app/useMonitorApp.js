@@ -3,6 +3,8 @@ import {
   DEFAULT_MONITOR_MODE,
   emptyForm,
   emptyGistSync,
+  emptyRemoteMachineForm,
+  emptyRemoteMachinesSync,
 } from "../lib/monitorDefaults";
 import { getModelLabel, normalizeClipboardText } from "../lib/monitorFormatters";
 import {
@@ -16,6 +18,8 @@ function applySnapshot(snapshot, setters, options = {}) {
 
   setters.setApis(snapshot?.apis || []);
   setters.setEvents(snapshot?.events || []);
+  setters.setRemoteMachines(snapshot?.remoteMachines || []);
+  setters.setRemoteMachinesSync(snapshot?.remoteMachinesSync || emptyRemoteMachinesSync);
   if (includeGistSync) {
     setters.setGistSync(snapshot?.gistSync || emptyGistSync);
   }
@@ -58,6 +62,8 @@ export default function useMonitorApp() {
   const [apis, setApis] = useState([]);
   const [events, setEvents] = useState([]);
   const [gistSync, setGistSync] = useState(emptyGistSync);
+  const [remoteMachines, setRemoteMachines] = useState([]);
+  const [remoteMachinesSync, setRemoteMachinesSync] = useState(emptyRemoteMachinesSync);
   const [intervalSeconds, setIntervalSeconds] = useState("60");
   const [monitorMode, setMonitorMode] = useState(DEFAULT_MONITOR_MODE);
   const [networkCheckURL, setNetworkCheckURL] = useState("https://baidu.com");
@@ -74,6 +80,8 @@ export default function useMonitorApp() {
   const [selectedModels, setSelectedModels] = useState([]);
   const [isApiFormOpen, setIsApiFormOpen] = useState(false);
   const [isGistSyncOpen, setIsGistSyncOpen] = useState(false);
+  const [isRemoteMachinesOpen, setIsRemoteMachinesOpen] = useState(false);
+  const [remoteMachineForm, setRemoteMachineForm] = useState(emptyRemoteMachineForm);
   const [statusFloat, setStatusFloat] = useState({ openApiIds: [] });
   const previousModelNamesRef = useRef([]);
 
@@ -94,6 +102,8 @@ export default function useMonitorApp() {
         setApis,
         setEvents,
         setGistSync,
+        setRemoteMachines,
+        setRemoteMachinesSync,
         setIntervalSeconds,
         setMonitorMode,
         setNetworkCheckURL,
@@ -108,6 +118,8 @@ export default function useMonitorApp() {
           setApis,
           setEvents,
           setGistSync,
+          setRemoteMachines,
+          setRemoteMachinesSync,
           setIntervalSeconds,
           setMonitorMode,
           setNetworkCheckURL,
@@ -128,6 +140,10 @@ export default function useMonitorApp() {
 
   useEffect(() => {
     if (!flash?.message) {
+      return undefined;
+    }
+
+    if (flash.tone === "loading") {
       return undefined;
     }
 
@@ -254,6 +270,8 @@ export default function useMonitorApp() {
           setApis,
           setEvents,
           setGistSync,
+          setRemoteMachines,
+          setRemoteMachinesSync,
           setIntervalSeconds,
           setMonitorMode,
           setNetworkCheckURL,
@@ -286,6 +304,20 @@ export default function useMonitorApp() {
     }));
   }
 
+  function updateRemoteMachinesSync(field, value) {
+    setRemoteMachinesSync((current) => ({
+      ...current,
+      [field]: value,
+    }));
+  }
+
+  function updateRemoteMachineForm(field, value) {
+    setRemoteMachineForm((current) => ({
+      ...current,
+      [field]: value,
+    }));
+  }
+
   function handleEdit(api) {
     setForm({
       id: api.id,
@@ -313,8 +345,18 @@ export default function useMonitorApp() {
     setIsGistSyncOpen(true);
   }
 
+  function handleOpenRemoteMachines() {
+    setRemoteMachineForm(emptyRemoteMachineForm);
+    setIsRemoteMachinesOpen(true);
+  }
+
   function handleCloseGistSync() {
     setIsGistSyncOpen(false);
+  }
+
+  function handleCloseRemoteMachines() {
+    setRemoteMachineForm(emptyRemoteMachineForm);
+    setIsRemoteMachinesOpen(false);
   }
 
   function handleCancelEdit() {
@@ -341,6 +383,8 @@ export default function useMonitorApp() {
           setApis,
           setEvents,
           setGistSync,
+          setRemoteMachines,
+          setRemoteMachinesSync,
           setIntervalSeconds,
           setMonitorMode,
           setNetworkCheckURL,
@@ -363,6 +407,86 @@ export default function useMonitorApp() {
 
   function handleDeleteRequest(api) {
     setPendingDeleteApi(api);
+  }
+
+  function handleEditRemoteMachine(machine) {
+    setRemoteMachineForm({
+      id: machine.id,
+      name: machine.name || "",
+      host: machine.host || "",
+      username: machine.username || "",
+      port: String(machine.port || 22),
+      authType: machine.authType || "password",
+      password: machine.password || "",
+      privateKey: machine.privateKey || "",
+    });
+    setIsRemoteMachinesOpen(true);
+    notify(`正在编辑远程机器 ${machine.name || machine.host}`);
+  }
+
+  async function handleSubmitRemoteMachine(event) {
+    event.preventDefault();
+    setListBusy(true);
+
+    try {
+      const snapshot = await window.monitorApi.saveRemoteMachine(remoteMachineForm);
+      if (snapshot) {
+        applySnapshot(snapshot, {
+          setApis,
+          setEvents,
+          setGistSync,
+          setRemoteMachines,
+          setRemoteMachinesSync,
+          setIntervalSeconds,
+          setMonitorMode,
+          setNetworkCheckURL,
+          setNetworkStatus,
+          setIsRunning,
+          setLastRunAt,
+          setStatusFloat,
+        });
+      }
+
+      notify(remoteMachineForm.id ? "远程机器已更新。" : "远程机器已保存。", "info");
+      setRemoteMachineForm(emptyRemoteMachineForm);
+    } catch (error) {
+      notify(getActionErrorMessage(error, "保存远程机器失败。"), "error");
+    } finally {
+      setListBusy(false);
+    }
+  }
+
+  async function handleDeleteRemoteMachine(machine) {
+    setListBusy(true);
+
+    try {
+      const snapshot = await window.monitorApi.deleteRemoteMachine(machine.id);
+      if (snapshot) {
+        applySnapshot(snapshot, {
+          setApis,
+          setEvents,
+          setGistSync,
+          setRemoteMachines,
+          setRemoteMachinesSync,
+          setIntervalSeconds,
+          setMonitorMode,
+          setNetworkCheckURL,
+          setNetworkStatus,
+          setIsRunning,
+          setLastRunAt,
+          setStatusFloat,
+        });
+      }
+
+      if (remoteMachineForm.id === machine.id) {
+        setRemoteMachineForm(emptyRemoteMachineForm);
+      }
+      notify("远程机器已删除。", "info");
+    } catch (error) {
+      notify(getActionErrorMessage(error, "删除远程机器失败。"), "error");
+    } finally {
+      setListBusy(false);
+    }
   }
 
   function handleDeleteCancel() {
@@ -426,6 +550,8 @@ export default function useMonitorApp() {
         setApis,
         setEvents,
         setGistSync,
+        setRemoteMachines,
+        setRemoteMachinesSync,
         setIntervalSeconds,
         setMonitorMode,
         setNetworkCheckURL,
@@ -545,8 +671,12 @@ export default function useMonitorApp() {
     );
   }
 
-  async function handleCopyGistId() {
-    const text = normalizeClipboardText(gistSync?.gistId);
+  async function handleCopyGistId(event, target = gistSync) {
+    if (event?.stopPropagation) {
+      event.stopPropagation();
+    }
+
+    const text = normalizeClipboardText(target?.gistId);
     if (!text) {
       notify("当前还没有可复制的 Gist ID。", "error");
       return;
@@ -590,6 +720,13 @@ export default function useMonitorApp() {
       return;
     }
 
+    const targetScope = typeof target === "string" ? "local" : String(target?.scope || "local");
+    const isRemoteTarget = targetScope === "remote";
+
+    if (isRemoteTarget) {
+      notify("正在应用到远程机器，请稍候...", "loading");
+    }
+
     setListBusy(true);
 
     try {
@@ -624,6 +761,8 @@ export default function useMonitorApp() {
           setApis,
           setEvents,
           setGistSync,
+          setRemoteMachines,
+          setRemoteMachinesSync,
           setIntervalSeconds,
           setMonitorMode,
           setNetworkCheckURL,
@@ -639,8 +778,50 @@ export default function useMonitorApp() {
         : "配置已同步到 GitHub Gist。";
       notify(gistMessage, "info");
       setIsGistSyncOpen(false);
+      setIsRemoteMachinesOpen(false);
     } catch (error) {
       notify(getActionErrorMessage(error, "同步到 GitHub Gist 失败。"), "error");
+    } finally {
+      setListBusy(false);
+    }
+  }
+
+  async function handleSyncRemoteMachinesToGist() {
+    if (typeof window.monitorApi?.syncRemoteMachinesGist !== "function") {
+      notify("当前窗口还没加载新的桌面桥接，请重启应用后再试。", "error");
+      return;
+    }
+
+    setListBusy(true);
+
+    try {
+      const result = await window.monitorApi.syncRemoteMachinesGist({
+        settings: gistSync,
+        remoteMachinesSync,
+      });
+      if (result?.snapshot) {
+        applySnapshot(result.snapshot, {
+          setApis,
+          setEvents,
+          setGistSync,
+          setRemoteMachines,
+          setRemoteMachinesSync,
+          setIntervalSeconds,
+          setMonitorMode,
+          setNetworkCheckURL,
+          setNetworkStatus,
+          setIsRunning,
+          setLastRunAt,
+          setStatusFloat,
+        }, { includeGistSync: true });
+      }
+
+      const gistMessage = result?.gistId
+        ? `远程机器已同步到 GitHub Gist（${result.gistId}）。`
+        : "远程机器已同步到 GitHub Gist。";
+      notify(gistMessage, "info");
+    } catch (error) {
+      notify(getActionErrorMessage(error, "同步远程机器到 GitHub Gist 失败。"), "error");
     } finally {
       setListBusy(false);
     }
@@ -659,6 +840,8 @@ export default function useMonitorApp() {
           setApis,
           setEvents,
           setGistSync,
+          setRemoteMachines,
+          setRemoteMachinesSync,
           setIntervalSeconds,
           setMonitorMode,
           setNetworkCheckURL,
@@ -675,11 +858,60 @@ export default function useMonitorApp() {
         : `已从 GitHub Gist ${actionLabel}。`;
       notify(gistMessage, "info");
       setIsGistSyncOpen(false);
+      setRemoteMachineForm(emptyRemoteMachineForm);
     } catch (error) {
       notify(getActionErrorMessage(error, "从 GitHub Gist 恢复配置失败。"), "error");
     } finally {
       setListBusy(false);
     }
+  }
+
+  async function executeRestoreRemoteMachinesFromGist(mode) {
+    if (typeof window.monitorApi?.restoreRemoteMachinesGist !== "function") {
+      notify("当前窗口还没加载新的桌面桥接，请重启应用后再试。", "error");
+      return;
+    }
+
+    setListBusy(true);
+
+    try {
+      const result = await window.monitorApi.restoreRemoteMachinesGist({
+        settings: gistSync,
+        remoteMachinesSync,
+        mode,
+      });
+      if (result?.snapshot) {
+        applySnapshot(result.snapshot, {
+          setApis,
+          setEvents,
+          setGistSync,
+          setRemoteMachines,
+          setRemoteMachinesSync,
+          setIntervalSeconds,
+          setMonitorMode,
+          setNetworkCheckURL,
+          setNetworkStatus,
+          setIsRunning,
+          setLastRunAt,
+          setStatusFloat,
+        }, { includeGistSync: true });
+      }
+
+      const actionLabel = result?.mode === "merge" ? "合并远程机器配置" : "恢复远程机器配置";
+      const gistMessage = result?.gistId
+        ? `已从 GitHub Gist ${actionLabel}（${result.gistId}）。`
+        : `已从 GitHub Gist ${actionLabel}。`;
+      notify(gistMessage, "info");
+      setRemoteMachineForm(emptyRemoteMachineForm);
+    } catch (error) {
+      notify(getActionErrorMessage(error, "从 GitHub Gist 恢复远程机器配置失败。"), "error");
+    } finally {
+      setListBusy(false);
+    }
+  }
+
+  async function handleRestoreRemoteMachinesFromGist() {
+    await executeRestoreRemoteMachinesFromGist("overwrite");
   }
 
   async function handleRestoreFromGist() {
@@ -705,6 +937,8 @@ export default function useMonitorApp() {
           setApis,
           setEvents,
           setGistSync,
+          setRemoteMachines,
+          setRemoteMachinesSync,
           setIntervalSeconds,
           setMonitorMode,
           setNetworkCheckURL,
@@ -729,6 +963,8 @@ export default function useMonitorApp() {
           setApis,
           setEvents,
           setGistSync,
+          setRemoteMachines,
+          setRemoteMachinesSync,
           setIntervalSeconds,
           setMonitorMode,
           setNetworkCheckURL,
@@ -781,6 +1017,7 @@ export default function useMonitorApp() {
     intervalSeconds,
     isApiFormOpen,
     isGistSyncOpen,
+    isRemoteMachinesOpen,
     isRunning,
     lastRunAt,
     listBusy,
@@ -792,6 +1029,9 @@ export default function useMonitorApp() {
     now,
     pendingDeleteApi,
     pendingRestoreChoice,
+    remoteMachineForm,
+    remoteMachines,
+    remoteMachinesSync,
     selectedModelSet,
     statusFloat,
     stats,
@@ -806,24 +1046,31 @@ export default function useMonitorApp() {
     handleCopyGistId,
     handleDeleteCancel,
     handleDeleteConfirm,
+    handleDeleteRemoteMachine,
     handleDeleteRequest,
     handleEdit,
+    handleEditRemoteMachine,
     handleApplyApiConfig,
     handleManualCheck,
     handleMonitorModeChange,
     handleCloseGistSync,
+    handleCloseRemoteMachines,
     handleOpenAddApi,
     handleOpenGistSync,
+    handleOpenRemoteMachines,
     handleOpenWebsite,
     handleOpenStatusFloat,
     handleToggleStatusFloat,
     handleRefreshNetworkStatus,
+    handleRestoreRemoteMachinesFromGist,
     handleRestoreChoiceCancel,
     handleRestoreFromGist,
     handleRestoreMergeConfirm,
     handleRestoreOverwriteConfirm,
     handleSingleCheck,
+    handleSubmitRemoteMachine,
     handleSubmit,
+    handleSyncRemoteMachinesToGist,
     handleSyncToGist,
     handleCloseStatusFloat,
     handleTogglePause,
@@ -831,6 +1078,8 @@ export default function useMonitorApp() {
     handleToggleMonitoring,
     updateForm,
     updateGistSync,
+    updateRemoteMachineForm,
+    updateRemoteMachinesSync,
     apis,
   };
 }

@@ -19,6 +19,7 @@ function RelayGrid({
   onSingleCheck,
   onTogglePause,
   openStatusFloatApiIds,
+  remoteMachines,
   unfocused = false,
 }) {
   return apis.map((api) => {
@@ -50,6 +51,7 @@ function RelayGrid({
         onToggleStatusFloat={onToggleStatusFloat}
         onSingleCheck={onSingleCheck}
         onTogglePause={onTogglePause}
+        remoteMachines={remoteMachines}
         statusFloatOpen={openStatusFloatApiIds.includes(api.id)}
         unfocused={unfocused}
         visibleHistory={visibleHistory}
@@ -69,6 +71,7 @@ export default function RelayPanel({
   modelFilters,
   now,
   onAddApi,
+  onAddRemoteMachine,
   onApplyApiConfig,
   onClearApiHistory,
   onClearHistory,
@@ -89,6 +92,7 @@ export default function RelayPanel({
   onTogglePause,
   onToggleModel,
   openStatusFloatApiIds,
+  remoteMachines,
   selectedModelSet,
   unfocusedApis,
 }) {
@@ -117,6 +121,14 @@ export default function RelayPanel({
               onClick={onAddApi}
             >
               添加API
+            </button>
+            <button
+              className="ghost-button"
+              disabled={listBusy}
+              type="button"
+              onClick={onAddRemoteMachine}
+            >
+              新增远程机器
             </button>
             <button
               className="ghost-button"
@@ -275,6 +287,7 @@ export default function RelayPanel({
             onSingleCheck={onSingleCheck}
             onTogglePause={onTogglePause}
             openStatusFloatApiIds={openStatusFloatApiIds}
+            remoteMachines={remoteMachines}
           />
         ) : null}
       </div>
@@ -304,6 +317,7 @@ export default function RelayPanel({
               onSingleCheck={onSingleCheck}
               onTogglePause={onTogglePause}
               openStatusFloatApiIds={openStatusFloatApiIds}
+              remoteMachines={remoteMachines}
               unfocused
             />
           </div>
@@ -335,6 +349,7 @@ export default function RelayPanel({
               onSingleCheck={onSingleCheck}
               onTogglePause={onTogglePause}
               openStatusFloatApiIds={openStatusFloatApiIds}
+              remoteMachines={remoteMachines}
               unfocused
             />
           </div>

@@ -6,6 +6,7 @@ import GistSyncModal from "./components/GistSyncModal";
 import MonitorHero from "./components/MonitorHero";
 import NetworkStatusBanner from "./components/NetworkStatusBanner";
 import RelayPanel from "./components/RelayPanel";
+import RemoteMachinesModal from "./components/RemoteMachinesModal";
 import RestoreGistModal from "./components/RestoreGistModal";
 import StatusFloatWindow from "./components/StatusFloatWindow";
 import TopToast from "./components/TopToast";
@@ -51,6 +52,7 @@ export default function App() {
           modelFilters={monitorApp.modelFilters}
           now={monitorApp.now}
           onAddApi={monitorApp.handleOpenAddApi}
+          onAddRemoteMachine={monitorApp.handleOpenRemoteMachines}
           onClearApiHistory={monitorApp.handleClearApiHistory}
           onClearHistory={monitorApp.handleClearHistory}
           onConfigureSync={monitorApp.handleOpenGistSync}
@@ -71,6 +73,7 @@ export default function App() {
           onTogglePause={monitorApp.handleTogglePause}
           onToggleModel={monitorApp.handleToggleModel}
           openStatusFloatApiIds={monitorApp.statusFloat.openApiIds}
+          remoteMachines={monitorApp.remoteMachines}
           selectedModelSet={monitorApp.selectedModelSet}
           unfocusedApis={monitorApp.unfocusedApis}
         />
@@ -97,6 +100,26 @@ export default function App() {
         onRestoreFromGist={monitorApp.handleRestoreFromGist}
         onSyncToGist={monitorApp.handleSyncToGist}
         onUpdateGistSync={monitorApp.updateGistSync}
+      />
+
+      <RemoteMachinesModal
+        form={monitorApp.remoteMachineForm}
+        gistSync={monitorApp.gistSync}
+        listBusy={monitorApp.listBusy}
+        machines={monitorApp.remoteMachines}
+        open={monitorApp.isRemoteMachinesOpen}
+        onCancel={monitorApp.handleCloseRemoteMachines}
+        onCopyGistId={monitorApp.handleCopyGistId}
+        onDelete={monitorApp.handleDeleteRemoteMachine}
+        onEdit={monitorApp.handleEditRemoteMachine}
+        onRestoreFromGist={monitorApp.handleRestoreFromGist}
+        onRestoreRemoteMachinesFromGist={monitorApp.handleRestoreRemoteMachinesFromGist}
+        onSubmit={monitorApp.handleSubmitRemoteMachine}
+        onSyncRemoteMachinesToGist={monitorApp.handleSyncRemoteMachinesToGist}
+        onUpdateForm={monitorApp.updateRemoteMachineForm}
+        onUpdateGistSync={monitorApp.updateGistSync}
+        onUpdateRemoteMachinesSync={monitorApp.updateRemoteMachinesSync}
+        remoteMachinesSync={monitorApp.remoteMachinesSync}
       />
 
       <ConfirmDeleteModal

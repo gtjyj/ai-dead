@@ -11,6 +11,10 @@ const persistedState = {
     token: '',
     gistId: '',
   },
+  remoteMachines: [],
+  remoteMachinesSync: {
+    gistId: '',
+  },
 };
 
 const runtimeState = {
@@ -79,6 +83,8 @@ function buildPublicState() {
     apis: [...persistedState.apis],
     events: runtimeState.events,
     gistSync: persistedState.gistSync,
+    remoteMachines: [...persistedState.remoteMachines],
+    remoteMachinesSync: persistedState.remoteMachinesSync,
     intervalSeconds: persistedState.intervalSeconds,
     monitorMode: persistedState.monitorMode,
     networkCheckURL: persistedState.networkCheckURL,

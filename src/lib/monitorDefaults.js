@@ -23,3 +23,18 @@ export const emptyGistSync = {
   token: "",
   gistId: "",
 };
+
+export const emptyRemoteMachineForm = {
+  id: "",
+  name: "",
+  host: "",
+  username: "",
+  port: "22",
+  authType: "password",
+  password: "",
+  privateKey: "",
+};
+
+export const emptyRemoteMachinesSync = {
+  gistId: "",
+};
