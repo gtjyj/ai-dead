@@ -19,6 +19,7 @@ function getAutoCheckStatus(api, isRunning) {
 
 export default function StatusFloatWindow({ api, isRunning }) {
   const cardRef = useRef(null);
+  const manualTriggerRef = useRef(false);
   const dragStateRef = useRef({
     dragStarted: false,
     moved: false,
@@ -148,6 +149,40 @@ export default function StatusFloatWindow({ api, isRunning }) {
     }
   }
 
+  function handleStatusPointerDown(event) {
+    event.stopPropagation();
+  }
+
+  function triggerManualCheck() {
+    if (!api?.id || manualTriggerRef.current || isTesting) {
+      return;
+    }
+
+    manualTriggerRef.current = true;
+    void window.monitorApi.testApi(api.id).finally(() => {
+      manualTriggerRef.current = false;
+    });
+  }
+
+  function handleStatusClick(event) {
+    event.stopPropagation();
+    if (dragStateRef.current.moved) {
+      return;
+    }
+
+    triggerManualCheck();
+  }
+
+  function handleStatusKeyDown(event) {
+    if (event.key !== "Enter" && event.key !== " ") {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+    triggerManualCheck();
+  }
+
   if (!api) {
     return null;
   }
@@ -166,9 +201,18 @@ export default function StatusFloatWindow({ api, isRunning }) {
     >
       <div className="status-float-metric">
         <span className="status-float-name">{title}</span>
-        <strong className={`status-float-metric-value ${autoCheckStatus.tone}`}>
+        <button
+          type="button"
+          className={`status-float-metric-value status-float-status-button ${autoCheckStatus.tone}`}
+          onClick={handleStatusClick}
+          onKeyDown={handleStatusKeyDown}
+          onPointerDown={handleStatusPointerDown}
+          disabled={isTesting}
+          aria-label={`手动测试 ${api.name || "当前 API"}`}
+          title="点击手动测试一次"
+        >
           {autoCheckStatus.label}
-        </strong>
+        </button>
       </div>
       <div
         className="status-float-dots"

@@ -155,6 +155,22 @@ input {
   line-height: 1;
 }
 
+.status-float-status-button {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.status-float-status-button:disabled {
+  cursor: progress;
+}
+
+.status-float-status-button:focus-visible {
+  outline: 1px solid rgba(255, 244, 231, 0.8);
+  outline-offset: 2px;
+}
+
 .status-float-metric-value.excellent {
   color: #0b6b45;
 }
